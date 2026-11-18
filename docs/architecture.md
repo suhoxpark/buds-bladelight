@@ -30,11 +30,11 @@ sequenceDiagram
     UI->>Controller: ON or OFF
     Controller->>Buds: Open factory RFCOMM
     Controller->>Journal: Commit pending device and phase
-    Controller->>Buds: Mode 1; await reply
+    Controller->>Buds: Mode 1 and await reply
     Controller->>Journal: Commit LED phase
-    Controller->>Buds: LEDTEST ON or OFF; await reply
+    Controller->>Buds: LEDTEST ON or OFF and await reply
     Controller->>Journal: Commit exit phase
-    Controller->>Buds: Mode 0; await reply
+    Controller->>Buds: Mode 0 and await reply
     Controller->>Buds: Close socket
     Controller->>Journal: Clear pending record
 ```
