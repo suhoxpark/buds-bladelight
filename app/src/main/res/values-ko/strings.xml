@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">설정</string>
+    <string name="on">켜기</string>
+    <string name="off">끄기</string>
+    <string name="turn_on">조명 켜기</string>
+    <string name="turn_off">조명 끄기</string>
+    <string name="auto_on">연결 시 자동 켜기</string>
+    <string name="auto_next">다음 연결부터 자동으로 켭니다.</string>
+    <string name="save_failed">저장하지 못했어요. 다시 시도하세요.</string>
+    <string name="back">뒤로</string>
+    <string name="buds">버즈</string>
+    <string name="select_buds">버즈 선택</string>
+    <string name="system_theme">시스템 설정</string>
+    <string name="light_theme">라이트</string>
+    <string name="dark_theme">다크</string>
+    <string name="theme">테마</string>
+    <string name="help">사용 안내</string>
+    <string name="ok">확인</string>
+    <string name="help_text">BladeLight는 불빛을 일정하게 켜며 Galaxy Wearable에서 선택한 스타일은 적용되지 않습니다. 불빛 상태는 버즈에서 직접 확인해 주세요.\n\n자동 켜기는 다음 연결부터 적용되며, 옵션을 꺼도 켜진 불빛은 유지됩니다. 앱을 강제 종료했다면 다시 열어야 자동 켜기가 동작합니다.</string>
+    <string name="theme_save_failed">테마를 저장하지 못했어요.</string>
+    <string name="permission">주변 기기 권한</string>
+    <string name="permission_message">버즈를 제어하려면 설정에서 주변 기기 권한을 허용해 주세요.</string>
+    <string name="open_settings">설정 열기</string>
+    <string name="cancel">취소</string>
+    <string name="busy">진행 중인 작업을 먼저 마쳐 주세요.</string>
+    <string name="no_buds">페어링된 버즈를 찾지 못했어요</string>
+    <string name="pair_message">Bluetooth 설정에서 Galaxy Buds3 Pro를 페어링해 주세요. 이름을 바꿨다면 Buds3 Pro를 포함해 주세요.</string>
+    <string name="bluetooth_settings">Bluetooth 설정</string>
+    <string name="register_buds">버즈 등록</string>
+    <string name="register_message">버즈를 등록하면 자동 켜기가 초기화됩니다. 등록 후 다시 설정할 수 있어요.</string>
+    <string name="register">등록</string>
+    <string name="register_failed">등록하지 못했어요. 다시 시도하세요.</string>
+    <string name="working">처리 중…</string>
+    <string name="recovery_needed">복구가 필요해요. 버즈를 연결한 뒤 눌러 주세요.</string>
+    <string name="retry_connection">버즈 연결을 확인한 뒤 다시 시도하세요.</string>
+    <string name="recovery_done">복구를 완료했어요.</string>
+    <string name="on_requested">켜기를 요청했어요.</string>
+    <string name="off_requested">끄기를 요청했어요.</string>
+    <string name="change_buds_accessibility">등록된 버즈, %1$s, 변경</string>
+    <string name="grant_permission">주변 기기 권한 허용</string>
+    <string name="close">닫기</string>
+    <string name="notification_channel">자동 조명</string>
+    <string name="notification_title">버즈에 연결 중</string>
+    <string name="notification_text">버즈와 통신하는 중</string>
+    <string name="version">BladeLight  /  %1$s</string>
+</resources>

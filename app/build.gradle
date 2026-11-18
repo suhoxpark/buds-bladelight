@@ -1,0 +1,63 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'dev.bladelight.app'
+    compileSdk 36
+    buildToolsVersion '35.0.0'
+    defaultConfig {
+        applicationId 'dev.bladelight.app'
+        minSdk 31
+        targetSdk 36
+        versionCode 8
+        versionName '0.6.0'
+        // Optional side-by-side visual review when an older install has a different signing key.
+        if (project.hasProperty('bladePreview')) applicationIdSuffix '.preview'
+        manifestPlaceholders = [appLabel: project.hasProperty('bladePreview') ? 'BladeLight Preview' : 'BladeLight']
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildFeatures { buildConfig true }
+    def signingValues = ['BLADELIGHT_KEYSTORE', 'BLADELIGHT_STORE_PASSWORD', 'BLADELIGHT_KEY_ALIAS', 'BLADELIGHT_KEY_PASSWORD'].collectEntries { [(it): System.getenv(it)] }
+    if (signingValues.values().any { it } && !signingValues.values().every { it }) {
+        throw new GradleException('Set all four BLADELIGHT signing variables, or leave all unset for an unsigned release build.')
+    }
+    if (signingValues.values().every { it }) {
+        signingConfigs {
+            release {
+                storeFile file(signingValues.BLADELIGHT_KEYSTORE)
+                storePassword signingValues.BLADELIGHT_STORE_PASSWORD
+                keyAlias signingValues.BLADELIGHT_KEY_ALIAS
+                keyPassword signingValues.BLADELIGHT_KEY_PASSWORD
+            }
+        }
+        buildTypes.release.signingConfig = signingConfigs.release
+    }
+}
+
+// These are standalone Java programs, not JUnit tests. Run them explicitly in CI.
+def compileCoreTests = tasks.register('compileCoreTests', JavaCompile) {
+    source files('src/main/java/dev/bladelight/app/Protocol.java',
+            'src/main/java/dev/bladelight/app/RecoveryTransaction.java',
+            'src/main/java/dev/bladelight/app/AutoConnectPolicy.java')
+    source fileTree('src/test/java') { include '**/*Test.java' }
+    classpath = files()
+    destinationDirectory = layout.buildDirectory.dir('core-test-classes')
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+def coreChecks = ['ProtocolTest', 'RecoveryTransactionTest', 'AutoConnectPolicyTest'].collect { testName ->
+    tasks.register("run${testName}", JavaExec) {
+        dependsOn compileCoreTests
+        classpath = files(compileCoreTests.flatMap { it.destinationDirectory })
+        mainClass = "dev.bladelight.app.${testName}"
+        enableAssertions = true
+    }
+}
+tasks.register('verifyCore') {
+    group = 'verification'
+    description = 'Runs the protocol, recovery and auto-connect standalone test suites.'
+    dependsOn coreChecks
+}
+tasks.named('check') { dependsOn 'verifyCore' }

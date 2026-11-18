@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">Settings</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="turn_on">Turn light on</string>
+    <string name="turn_off">Turn light off</string>
+    <string name="auto_on">Turn on when connected</string>
+    <string name="auto_next">Automatic lighting starts on the next connection.</string>
+    <string name="save_failed">Could not save. Try again.</string>
+    <string name="back">Back</string>
+    <string name="buds">Buds</string>
+    <string name="select_buds">Select Buds</string>
+    <string name="system_theme">System</string>
+    <string name="light_theme">Light</string>
+    <string name="dark_theme">Dark</string>
+    <string name="theme">Theme</string>
+    <string name="help">Help</string>
+    <string name="ok">OK</string>
+    <string name="help_text">BladeLight turns the lights on steadily; the style selected in Galaxy Wearable is not applied. Check the lights on your Buds.\n\nAuto-on takes effect on the next connection. Turning it off does not turn off lights already on. After force-stopping the app, open it again to restore auto-on.</string>
+    <string name="theme_save_failed">Could not save theme.</string>
+    <string name="permission">Nearby devices permission</string>
+    <string name="permission_message">Allow Nearby devices access in Settings to control your Buds.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="cancel">Cancel</string>
+    <string name="busy">Finish the current task first.</string>
+    <string name="no_buds">No paired Buds found</string>
+    <string name="pair_message">Pair Galaxy Buds3 Pro in Bluetooth settings. If renamed, include “Buds3 Pro” in its name.</string>
+    <string name="bluetooth_settings">Bluetooth settings</string>
+    <string name="register_buds">Register Buds</string>
+    <string name="register_message">Registering these Buds resets auto-on. You can enable it again afterward.</string>
+    <string name="register">Register</string>
+    <string name="register_failed">Could not register. Try again.</string>
+    <string name="working">Working…</string>
+    <string name="recovery_needed">Recovery needed. Connect your Buds and tap to retry.</string>
+    <string name="retry_connection">Check your Buds connection and try again.</string>
+    <string name="recovery_done">Recovery complete.</string>
+    <string name="on_requested">On requested.</string>
+    <string name="off_requested">Off requested.</string>
+    <string name="change_buds_accessibility">Registered Buds, %1$s, change</string>
+    <string name="grant_permission">Allow Nearby devices access</string>
+    <string name="close">Close</string>
+    <string name="notification_channel">Automatic lighting</string>
+    <string name="notification_title">Connecting to Buds</string>
+    <string name="notification_text">Working with your Buds</string>
+    <string name="version">BladeLight  /  %1$s</string>
+</resources>
