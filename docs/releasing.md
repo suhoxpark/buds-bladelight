@@ -52,6 +52,8 @@ Verify the actual APK across the supported SDK range and test an in-place update
 
 The checked-in workflow builds a development APK and runs verification on GitHub. It does not sign or publish releases and requires no signing secrets. Its artifacts must remain labelled as development builds.
 
+Hosted CI has been verified successfully; the dated run, commit and checks are recorded in [Hosted CI validation](validation.md#hosted-ci).
+
 ## Source inclusion
 
 The public tree includes the production app, three core test suites, portable build tools, curated English documentation and Korean README. Experimental packages, local scripts, caches, signing material, device records and the entire `design` directory are excluded. Only the active signature in application resources is published; design references, duplicate masters and previous iterations remain local.

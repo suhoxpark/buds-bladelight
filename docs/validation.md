@@ -50,7 +50,13 @@ The interface supports English/Korean resources and light/dark/system themes. Pr
 
 For the 0.6.0 preparation on 2026-11-18, a separate Preview package was used on the documented phone to verify English/Korean home, settings, theme selection and Help in light/dark themes. The Preview package was removed afterward; the installed 0.5.0 application and its preferences were unchanged. No light command or new earbud registration was performed. Large-font/narrow-window testing was not repeated in this pass.
 
-A copy containing only the 52 allowlisted public files passed all three core suites, debug Lint, debug assembly and unsigned release assembly. Public-tree Lint reported 0 errors and 8 warnings, including compatibility/deprecation and recommended-resource notices. Local debug/release Lint also passed. The final debug APK was checked for version 0.6.0 (code 8) and absence of the experimental instrumentation classes. GitHub Actions is configured but was not executed remotely during this preparation; no signed public release is claimed.
+A copy containing only the 52 allowlisted public files passed all three core suites, debug Lint, debug assembly and unsigned release assembly. Public-tree Lint reported 0 errors and 8 warnings, including compatibility/deprecation and recommended-resource notices. Local debug/release Lint also passed. The final debug APK was checked for version 0.6.0 (code 8) and absence of the experimental instrumentation classes.
+
+## Hosted CI
+
+GitHub Actions completed successfully on **2026-11-20** for commit [`b8ed479`](https://github.com/suhoxpark/buds-bladelight/commit/b8ed479cb647234a1d8ef6dcc4f6bd35a136856a). The [verified run](https://github.com/suhoxpark/buds-bladelight/actions/runs/44642028785) passed Android SDK setup, the public-tree audit, all three core Java suites, `lintDebug`, `assembleDebug` and upload of the `BladeLight-development-apk` artifact. The uploaded artifact was also downloaded and checked.
+
+Hosted CI was unavailable when 0.6.0 was first published on 2026-11-18. This later run verifies the updated workflow on `main`; it builds a development APK and does not sign or replace the published release APK. Release signing and the physical in-place update were verified separately as described below.
 
 ## Public-release update
 
