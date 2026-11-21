@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Protocol](protocol.md) · [Validation](validation.md)
 
-BladeLight controls the Galaxy Buds3 Pro lights through a short-lived diagnostic RFCOMM session. It leaves no permanent socket or service running after a completed operation. ON produces steady output; it does not enter the normal Samsung pattern state machine or overwrite the saved pattern.
+BladeLight uses short-lived factory RFCOMM sessions for light control and saved-style settings. It leaves no permanent socket or service running after a completed operation. ON produces steady diagnostic output; it does not start the normal Samsung pattern state machine or overwrite the saved style.
 
 ## Components
 
@@ -11,7 +11,8 @@ BladeLight controls the Galaxy Buds3 Pro lights through a short-lived diagnostic
 | `MainActivity` | Device selection, light commands, theme, permissions and recovery UI |
 | `BladeSheet` / `BladeIcon` / `BladeArtworkView` | Themed choices, interface icons and signature rendering |
 | `BladeController` | Process-wide owner, serialized worker, connection and exchange deadlines |
-| `RecoveryTransaction` | Android-independent transaction and recovery policy |
+| `RecoveryTransaction` | Android-independent light transaction and recovery policy |
+| `PatternSettings` / `PatternTransaction` | Guarded style snapshots, writes and readback |
 | `Protocol` | Framing, CRC, stream decoding and reply matching |
 | `StateStore` | Registration, recovery journal and connection epochs |
 | `AutoConnectReceiver` | Filters ACL events for the registered bonded Classic device |
@@ -31,10 +32,16 @@ sequenceDiagram
     Controller->>Buds: Open factory RFCOMM
     Controller->>Journal: Commit pending device and phase
     Controller->>Buds: Mode 1 and await reply
-    Controller->>Journal: Commit LED phase
-    Controller->>Buds: LEDTEST ON or OFF and await reply
-    Controller->>Journal: Commit exit phase
-    Controller->>Buds: Mode 0 and await reply
+    alt ON request
+        Controller->>Journal: Commit LED phase
+        Controller->>Buds: LEDTEST ON and await reply
+        Controller->>Journal: Commit exit phase
+        Controller->>Buds: Mode 0 and await reply
+    else OFF request
+        Controller->>Buds: LEDTEST OFF and await reply
+        Controller->>Buds: Attempt mode 0 and await reply
+        Controller->>Buds: Attempt native OFF and await reply
+    end
     Controller->>Buds: Close socket
     Controller->>Journal: Clear pending record
 ```
@@ -53,11 +60,19 @@ Connection and write deadlines close the socket. These are per-stage bounds, not
 
 The pending record is synchronously committed before the first device command. A failed commit prevents device-side effects. The device address and phase remain available if the process disappears mid-operation.
 
-An interrupted socket is discarded. One recovery attempt opens a **fresh session**, enters diagnostic mode, requests LED OFF and attempts mode exit. Exit is attempted even if entry or the OFF reply fails. Only successful required steps clear the journal; otherwise it remains for app resume or a subsequent real connection.
+An interrupted socket is discarded. One recovery attempt opens a **fresh session**, enters diagnostic mode, requests LED OFF, attempts mode exit and sends native OFF. Both exit and native OFF are attempted even if an earlier cleanup step fails. Only successful required steps clear the journal; otherwise it remains for app resume or a subsequent real connection.
 
 This matters because LED ON and OFF have the same textual acknowledgement and no request sequence number. Reusing the failed socket could mistake a delayed ON reply for an OFF reply. A fresh session removes that ambiguity from the previous transport session, but the reply still does not measure physical light output.
 
 Production uses `RecoveryTransaction`. Historical bounded trial helpers in `Protocol` are covered by tests but are not the daily controller's transaction implementation. In particular, production does not apply their same-session mode-exit retry policy.
+
+## Saved style changes
+
+The controller serializes style operations with light control. A fresh supported revision-4 snapshot supplies the existing touch settings and saved style. The compound write preserves those settings and rejects configurations whose normalization has not been validated. A durable pending record is committed before a write; a new connection provides settings readback. After interruption, reconciliation reads the current settings without replaying or rolling back the style command. An unreadable outcome remains pending.
+
+The saved setting is distinct from the active native scene and from diagnostic output. A successful settings readback does not establish a physical light change or start a cold native pattern.
+
+Lighting and settings journals are independent. Explicit OFF remains available when settings readback is pending or unsupported. If both journals are present, lighting cleanup runs before settings reconciliation, including the automatic-ON path. Merely opening the style picker does not consume an automatic-ON connection epoch.
 
 ## Automatic operation
 
@@ -73,6 +88,6 @@ Disabling auto-on does not extinguish an existing light. An explicit OFF request
 
 English is the default resource language; Korean is supplied separately. Android 13+ can select either per app. On Android 12 the system language determines the resource choice. Theme selection is stored independently. The signature remains decorative: the app has no reliable physical LED-state query.
 
-Private preferences store the selected Bluetooth address/name, theme, automatic-operation state, connection bookkeeping and pending recovery. Diagnostic logs use Android logcat. Android backup is disabled and no Internet permission is declared. There is no account or remote telemetry service.
+Private preferences store the selected Bluetooth address/name, theme, automatic-operation state, connection bookkeeping and pending recovery, including a pending settings reconciliation. Diagnostic logs use Android logcat. Android backup is disabled and no Internet permission is declared. There is no account or remote telemetry service.
 
 Bluetooth connection/scan permissions support device access; a connected-device foreground service and notification permission support brief automatic work. The name-based Buds3 Pro selector is a usability filter, not cryptographic model identification. The application must not imply compatibility merely because a device has a matching name.

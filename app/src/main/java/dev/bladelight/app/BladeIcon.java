@@ -24,6 +24,11 @@ public final class BladeIcon extends Drawable {
                 c.drawCircle(12,12,3.5f,p);
                 for(int i=0;i<8;i++){double a=i*Math.PI/4;line(c,12+(float)Math.cos(a)*7.4f,12+(float)Math.sin(a)*7.4f,12+(float)Math.cos(a)*9.2f,12+(float)Math.sin(a)*9.2f);} break;
             case "power": c.drawArc(4,4,20,20,-48,276,false,p); line(c,12,3,12,11); break;
+            case "pattern":
+                Path wave=new Path();wave.moveTo(3,12);wave.cubicTo(6,12,6,5,9,5);
+                wave.cubicTo(12,5,12,19,15,19);wave.cubicTo(18,19,18,12,21,12);c.drawPath(wave,p);break;
+            case "steady": line(c,4,12,20,12);break;
+            case "blink": line(c,3,12,7,12);line(c,10,12,14,12);line(c,17,12,21,12);break;
             case "settings":
                 line(c,4,6,8,6); line(c,12,6,20,6); c.drawCircle(10,6,2,p);
                 line(c,4,12,14,12); line(c,18,12,20,12); c.drawCircle(16,12,2,p);

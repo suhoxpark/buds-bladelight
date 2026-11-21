@@ -39,6 +39,8 @@
 !/app/src/main/java/dev/bladelight/app/BladeSheet.java
 !/app/src/main/java/dev/bladelight/app/MainActivity.java
 !/app/src/main/java/dev/bladelight/app/Protocol.java
+!/app/src/main/java/dev/bladelight/app/PatternSettings.java
+!/app/src/main/java/dev/bladelight/app/PatternTransaction.java
 !/app/src/main/java/dev/bladelight/app/RecoveryTransaction.java
 !/app/src/main/java/dev/bladelight/app/StateStore.java
 !/app/src/main/res/
@@ -83,6 +85,8 @@
 /app/src/test/java/dev/bladelight/app/*
 !/app/src/test/java/dev/bladelight/app/AutoConnectPolicyTest.java
 !/app/src/test/java/dev/bladelight/app/ProtocolTest.java
+!/app/src/test/java/dev/bladelight/app/PatternSettingsTest.java
+!/app/src/test/java/dev/bladelight/app/PatternTransactionTest.java
 !/app/src/test/java/dev/bladelight/app/RecoveryTransactionTest.java
 !/build.gradle
 !/docs/

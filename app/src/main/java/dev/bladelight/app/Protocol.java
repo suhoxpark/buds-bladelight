@@ -56,7 +56,8 @@ public final class Protocol {
         private Ticket pending;
         public synchronized Ticket arm(long session, int id, int value) {
             if (pending != null) throw new IllegalStateException("exchange already pending");
-            if (id != 0x12 && id != 0x13) throw new IllegalArgumentException("unsupported exchange");
+            if (id != 0x12 && id != 0x13 && !(id == 0x8e && value == 0))
+                throw new IllegalArgumentException("unsupported exchange");
             return pending = new Ticket(session, id, value);
         }
         public synchronized void accept(long session, byte[] frame) {
@@ -65,7 +66,15 @@ public final class Protocol {
             int id = frame[3] & 255;
             int flags = (frame[2] & 255) << 8;
             if (id != ticket.id || (flags & 0x2000) != 0) return;
-            if (id == 0x12) {
+            if (id == 0x8e) {
+                // The decoder validates frames in production, but also validate here so
+                // a request, fragment or malformed callback cannot confirm native OFF.
+                if (frame.length == 8 && (frame[0] & 255) == 0xfd && frame[1] == 4
+                        && (frame[2] & 0x33) == 0x10 && frame[4] == 0
+                        && (frame[7] & 255) == 0xdd
+                        && crc(frame, 3, 2) == ((frame[5] & 255) | ((frame[6] & 255) << 8)))
+                    ticket.done = true;
+            } else if (id == 0x12) {
                 if (frame.length == 8 && (frame[4] & 255) == ticket.value) ticket.done = true;
             } else {
                 int count = Math.min(frame.length - 7, 512 - ticket.text.length());

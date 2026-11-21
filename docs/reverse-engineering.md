@@ -6,7 +6,7 @@
 
 The investigation asked how a phone can start the Galaxy Buds3 Pro blade lights without holding the earbuds' stems, and whether it can retain Samsung's selected blinking or breathing style.
 
-The diagnostic LEDTEST route successfully turns both lights on and off. It produces steady output independently of the saved native pattern. The normal pattern engine and its peer synchronization path were located, but **native-pattern activation from the application remains unresolved**. No experimental breathing substitute or peer packet is included in the production controller.
+The diagnostic LEDTEST route successfully turns both lights on and off. It produces steady output independently of the saved native pattern. The normal pattern engine and its peer synchronization path were located. A guarded compound-settings update changes the saved style, but **native-pattern activation from a fully inactive state remains unresolved**. No experimental breathing substitute or peer packet is included in the production controller.
 
 ## Evidence and provenance
 
@@ -22,7 +22,7 @@ Static analysis used [archived FOTA_R630XXU0AZG2.bin](https://github.com/timschn
 | Segment CRC32 | `0x0985CC89`, matching the container record |
 | Code mapping | ARM Thumb at `0x2C020000`, alias `0x0C020000` |
 
-Embedded strings matched the user-reported firmware version. The archive is third-party provenance, not a Samsung authenticity verification. Its bytes were not compared with an installed readback or a fresh official CDN download.
+Embedded version strings matched version-information responses from both earbuds. The archive is third-party provenance, not a Samsung authenticity verification. Its bytes were not compared with an installed readback or a fresh official CDN download.
 
 Official companion-app message builders were examined locally with JADX. Firmware work used Capstone instruction inspection and targeted Ghidra 12.2 decompilation in read-only mode. Virtual addresses were checked against literal strings and call targets. A container offset maps to `offset - 0x1C + 0x2C020000` for this segment.
 
@@ -76,7 +76,7 @@ Peer synchronization carries `[side, scene, savedStyle, timestamp32LE]`. Crucial
 
 ## Phone-to-peer entry points
 
-The external SPP services register mobile Format 1/2/3 parsers. Format 1 and Format 3 read 8-bit IDs. Format 2 maps fixed inputs to IDs `0x50`–`0x54`. The metadata flag does not expand the command ID to 16 bits. The internal bridge parser at `0x2C1B7A20` uses 16-bit IDs and is registered separately.
+The external SPP services register mobile Format 1/2/3 parsers. Format 1 and Format 3 read 8-bit IDs. Format 2 maps fixed inputs to IDs `0x0250`–`0x0254`. The metadata flag does not expand the command ID to 16 bits. The internal bridge parser at `0x2C1B7A20` uses 16-bit IDs and is registered separately.
 
 | Candidate | Finding |
 | --- | --- |
@@ -96,7 +96,7 @@ The parser binding and callback searches narrow the verified routes. They do not
 
 Diagnostic `00E1` LEDCTRLT exposes levels 1–9 and restarts output between changes. Values 10 or greater use a fixed maximum descriptor, not a breathing selector. Calibration and nonvolatile brightness commands were excluded from testing.
 
-A short phone-managed trial sent 37 commands and received 37 replies over 13.101 seconds. Both earbuds changed brightness, but the user observed visible steps and flicker. Both were observed off after cleanup. An earlier trial stopped after one response because it incorrectly expected replies from both sides. A single L-prefixed reply corresponded to both earbuds changing, so reply prefixes cannot substitute for physical observations.
+A short phone-managed trial sent 37 commands and received 37 replies over 13.101 seconds. Visual inspection showed that both earbuds changed brightness with visible steps and flicker. Both were observed off after cleanup. An earlier trial stopped after one response because it incorrectly expected replies from both sides. A single L-prefixed reply corresponded to both earbuds changing, so reply prefixes cannot substitute for physical observations.
 
 This alternative was rejected. Increasing the send rate alone does not establish smooth output, and no permanent brightness loop or background keepalive was added.
 
@@ -121,4 +121,15 @@ A disposable phone diagnostic package tested connection only, with an 8-second s
 
 The phone stack reported “Peer does not support our desired channel types” after the channel security-complete event. The inspected [AOSP Classic socket implementation](https://android.googlesource.com/platform/packages/modules/Bluetooth/+/refs/heads/main/system/btif/src/btif_sock_l2cap.cc) supplies ERTM options; the checked flags/settings provided no basic-mode selector. This corroborates the mode mismatch but is not analysis of the exact Samsung native Bluetooth binary. The [Android device implementation](https://android.googlesource.com/platform/packages/modules/Bluetooth/+/5b0a0284d21c4cfa9e2a99afeca348c601a95f6c/framework/java/android/bluetooth/BluetoothDevice.java) also distinguishes hidden Classic L2CAP methods from the public LE channel API.
 
-The probe was removed, the ordinary app and preferences were preserved, and Bluetooth remained connected. No global hidden-API policy was changed, no pairing was replaced, and no LED/style/firmware payload was sent. A compatible BESAUD channel and native-pattern ON remain unverified. A timeout at channel setup must not be described as rejection of a lighting command.
+The phone probe was removed, the ordinary app and preferences were preserved, and Bluetooth remained connected. No global hidden-API policy was changed, no pairing was replaced, and no LED/style/firmware payload was sent. The phone did not establish a compatible BESAUD channel in those probes; native-pattern ON remains unverified. A timeout at channel setup must not be described as rejection of a lighting command.
+
+
+### Later peer-channel and logging observations
+
+A separate Linux Basic-mode trial held the authenticated factory control connection while one earbud was placed in the closed case. A fresh factory snapshot reported the peer bridge down, after which PSM `0x0033` connected. A later four-second receive-only observation delivered no application datagrams. No internal application payload was sent. This establishes transport access for that tested condition, not external command admission or reliable two-earbud coexistence.
+
+The examined consumer checks a peer handle and bridge state before dispatch; merely opening an external BESAUD socket was not shown to assign that handle. A possible runtime fallback remains unverified. The outer `0x8701` acknowledgement is emitted in multiple callback outcomes and does not itself prove that an inner message was processed.
+
+A bounded diagnostic snapshot on the tested hardware captured genuine peer traffic. For inner messages `0x0179` and `0x0181`, records showed outer receive, bridge parsing, then named handler entry. In both cases the outer acknowledgement preceded the handler entry. These observations validate the distinction between transport acknowledgement and handler execution, but do not establish side effects or physical LED output. The retained live log window did not capture initial peer setup or complete frame bytes.
+
+The stock snapshot session pauses the log buffer; its close path requests an earbud restart. It is therefore a diagnostic research operation, not a transparent production status query. The export succeeded in the tested setup, and normal reconnection was confirmed afterward. It was not integrated into the app.

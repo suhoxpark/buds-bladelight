@@ -9,11 +9,12 @@ Control the blade lights on your **Galaxy Buds3 Pro** from Android. Turn them on
 ## Features
 
 - One-tap light controls and optional auto-on when your earbuds reconnect.
+- Read and change the saved steady, blinking or breathing style when supported settings are present.
 - Light, dark and system themes.
 - Interrupted-command recovery with no permanent Bluetooth connection.
 - No accounts, ads, analytics or Internet permission.
 
-**Current limitation:** ON produces a steady light. Samsung's blinking and breathing styles are not applied, but their saved settings are not overwritten. The signature artwork is not a live indicator of the earbuds' light state.
+**Current limitation:** ON produces a steady diagnostic light, regardless of the saved style. Style changes affect Samsung's saved setting; they do not reliably start a light that is off. The signature artwork is not a live indicator of the earbuds' light state.
 
 ## Compatibility
 
@@ -27,7 +28,8 @@ BladeLight is an independent project, not affiliated with Samsung, and uses a re
 2. Pair your Galaxy Buds3 Pro in Android Bluetooth settings.
 3. Open BladeLight, allow Nearby devices access, and select your earbuds.
 4. Use **On** and **Off**. Samsung's companion app can remain running.
-5. Enable **Turn on when connected** if desired. It applies on the next connection; disabling it does not turn off lights already on.
+5. Open **Light style** on the main screen to read or change the setting saved on your connected earbuds.
+6. Enable **Turn on when connected** if desired. It applies on the next connection; disabling it does not turn off lights already on.
 
 If you renamed your earbuds, keep **Buds3 Pro** in their Bluetooth name so they appear in the selector. This filter is a selection aid, not hardware authentication.
 
@@ -45,7 +47,7 @@ Set `ANDROID_HOME` to your SDK, or configure the SDK in Android Studio. From the
 
 On Windows, use `gradlew.bat`. Output: `app/build/outputs/apk/debug/app-debug.apk`. Debug builds use a development key and are not official release artifacts.
 
-`verifyCore` explicitly executes three standalone Java test suites. Android's `testDebugUnitTest` alone does not run them. See [releasing](docs/releasing.md) for signing and publication instructions.
+`verifyCore` explicitly executes the standalone Java test suites. Android's `testDebugUnitTest` alone does not run them. See [releasing](docs/releasing.md) for signing and publication instructions.
 
 ## Technical documentation
 

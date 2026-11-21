@@ -42,6 +42,10 @@ public final class RecoveryTransactionTest {
                     check(!journal.pending.isEmpty(), "journal must exist before LED");
                     String op = value ? "led1" : "led0"; events.add(serial + ":" + op); fail(op);
                 }
+                public void nativeOff() throws Exception {
+                    check(!journal.pending.isEmpty(), "journal must exist before native OFF");
+                    events.add(serial + ":native0"); fail("native0");
+                }
                 public void close() { events.add(serial + ":close"); }
             };
         }
@@ -71,7 +75,7 @@ public final class RecoveryTransactionTest {
             events.clear(); journal.pending = ""; transport.connects = 0; wanted.set(true);
             r = new RecoveryTransaction(journal, transport, hooks(wanted, fault)).request("A", true, wanted::get);
             check(!r.success && !r.pending, "failure is reported even if recovery succeeds " + fault);
-            check(transport.connects == 2 && events.contains("2:led0") && events.contains("2:mode0"), "fresh OFF recovery " + fault);
+            check(transport.connects == 2 && events.contains("2:led0") && events.contains("2:mode0") && events.contains("2:native0"), "fresh OFF recovery " + fault);
             check(events.indexOf("1:close") < events.indexOf("connect:2"), "old connection closed first");
         }
 
@@ -81,13 +85,38 @@ public final class RecoveryTransactionTest {
         check(transport.connects == 1, "one bounded recovery attempt");
         transport.failStep = ""; events.clear(); transport.connects = 0;
         r = new RecoveryTransaction(journal, transport, hooks(wanted, "")).recover();
-        check(r.success && !r.pending && events.contains("1:led0"), "new process can recover persisted phase");
+        check(r.success && !r.pending && events.contains("1:led0") && events.contains("1:native0"), "new process can recover persisted phase");
 
         events.clear(); journal.pending = "A"; transport.connects = 0;
         transport.failStep = "led0"; transport.failCount = 1;
         r = t.recover();
         check(!r.success && r.pending, "missing OFF acknowledgement retains journal");
-        check(events.contains("1:mode0") && !events.contains("clear"), "mode exit attempted after OFF error");
+        check(events.contains("1:mode0") && events.contains("1:native0") && !events.contains("clear"), "mode exit and native OFF attempted after OFF error");
+        journal.pending = ""; transport.failStep = "";
+
+        for (String step : new String[]{"mode1", "led0", "mode0", "native0"}) {
+            events.clear(); journal.pending = "A"; transport.connects = 0;
+            transport.failStep = step; transport.failCount = 1;
+            r = t.recover();
+            check(!r.success && r.pending && !events.contains("clear"), "recovery preserves journal after " + step);
+            check(events.contains("1:mode0") && events.contains("1:native0"), "both cleanup paths attempted after " + step);
+            check(events.indexOf("1:mode0") < events.indexOf("1:native0"), "native OFF follows exit attempt");
+        }
+        for (String step : new String[]{"mode1", "led0", "mode0", "native0"}) {
+            events.clear(); journal.pending = ""; transport.connects = 0;
+            transport.failStep = step; transport.failCount = 1;
+            r = t.request("A", false, () -> true);
+            check(!r.success && !r.pending && transport.connects == 2, "OFF failure triggers a fresh successful recovery after " + step);
+            check(events.contains("1:mode0") && events.contains("1:native0"), "OFF attempts both cleanup paths after " + step);
+            check(events.contains("2:mode1") && events.contains("2:led0") && events.contains("2:mode0") && events.contains("2:native0"), "fresh recovery checks all replies");
+            check(events.indexOf("2:native0") < events.indexOf("clear"), "journal clear follows verified recovery");
+        }
+        events.clear(); journal.pending = ""; transport.connects = 0;
+        transport.failStep = "native0"; transport.failCount = 2;
+        r = t.request("A", false, () -> true);
+        check(!r.success && r.pending && transport.connects == 2, "native OFF failure and failed fresh recovery retain journal");
+        check(events.contains("1:native0") && events.contains("2:native0") && !events.contains("clear"), "both native attempts require replies");
+        check(events.indexOf("1:close") < events.indexOf("connect:2"), "native failure recovers on fresh session");
         journal.pending = ""; transport.failStep = "";
 
         events.clear(); journal.pending = ""; journal.failCommit = true; transport.connects = 0; wanted.set(true);
@@ -98,7 +127,22 @@ public final class RecoveryTransactionTest {
         r = t.request("A", true, wanted::get);
         check(!r.success && transport.connects == 0, "disabled auto request is not sent");
         r = t.request("A", false, wanted::get);
-        check(r.success && events.contains("1:led0"), "OFF is not blocked by auto option");
+        check(r.success && events.contains("1:led0") && events.contains("1:native0"), "OFF is not blocked by auto option");
+        check(events.indexOf("1:mode0") < events.indexOf("1:native0") && events.indexOf("1:native0") < events.indexOf("clear"), "successful OFF clears only after both paths");
+        RecoveryTransaction.Hooks unavailableSettings = new RecoveryTransaction.Hooks() {
+            public void log(String text) { }
+            public void beforeOn() throws Exception { events.add("settings_read"); throw new IOException("settings unavailable"); }
+            public void afterMode(RecoveryTransaction.Session s) { }
+            public void afterLed(RecoveryTransaction.Session s) { }
+        };
+        RecoveryTransaction coordinated = new RecoveryTransaction(journal, transport, unavailableSettings);
+        events.clear(); journal.pending="A";transport.connects=0;
+        r=coordinated.request("A",true,()->true);
+        check(!r.success && !r.pending && transport.connects==1,"failed settings read does not skip pending lighting recovery");
+        check(events.indexOf("1:native0")<events.indexOf("settings_read") && !events.contains("1:led1"),"native cleanup precedes settings prerequisite");
+        events.clear();transport.connects=0;
+        r=coordinated.request("A",false,()->true);
+        check(r.success && events.contains("1:native0") && !events.contains("settings_read"),"OFF is independent of unavailable settings");
         System.out.println("RecoveryTransaction tests passed");
     }
 }

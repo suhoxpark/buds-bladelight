@@ -13,11 +13,14 @@ public final class RecoveryTransaction {
     public interface Session extends AutoCloseable {
         void mode(boolean on) throws Exception;
         void led(boolean on) throws Exception;
+        void nativeOff() throws Exception;
         @Override void close();
     }
     public interface Transport { Session connect(String address) throws Exception; }
     public interface Hooks {
         void log(String message);
+        /** Independent settings reconciliation runs after lighting recovery, only for ON. */
+        default void beforeOn() throws Exception { }
         void afterMode(Session session) throws Exception;
         void afterLed(Session session) throws Exception;
     }
@@ -40,18 +43,7 @@ public final class RecoveryTransaction {
         if (address.isEmpty()) return;
         hooks.log("미완료 명령 복구: 새 연결에서 조명 끄기와 모드 종료를 확인합니다.");
         try (Session session = transport.connect(address)) {
-            Exception failure = null;
-            try {
-                session.mode(true);
-                session.led(false);
-            } catch (Exception e) { failure = e; }
-            // Even when mode entry or the OFF reply fails, attempt to leave diagnostic mode.
-            try { session.mode(false); }
-            catch (Exception e) {
-                if (failure == null) failure = e;
-                else failure.addSuppressed(e);
-            }
-            if (failure != null) throw failure;
+            off(session, false);
         }
         journal.clear(address);
         hooks.log("복구 명령과 모드 종료 응답 확인. 실제 조명은 별도 확인이 필요합니다.");
@@ -74,22 +66,27 @@ public final class RecoveryTransaction {
         if (enabled && !stillWanted.getAsBoolean()) return result(false, "켜기 요청이 취소되었습니다.");
         boolean marked = false;
         try {
+            if (enabled) hooks.beforeOn();
             try (Session session = transport.connect(address)) {
                 if (enabled && !stillWanted.getAsBoolean()) throw new IOException("켜기 요청이 취소되었습니다.");
                 journal.mark(address, enabled ? "on_before_mode" : "off_before_mode");
                 marked = true;
-                session.mode(true);
-                hooks.afterMode(session);
-                if (enabled && !stillWanted.getAsBoolean()) throw new IOException("켜기 요청이 취소되었습니다.");
-                journal.mark(address, enabled ? "on_before_led" : "off_before_led");
-                session.led(enabled);
-                hooks.afterLed(session);
-                if (enabled && !stillWanted.getAsBoolean()) throw new IOException("켜기 요청이 취소되었습니다.");
-                journal.mark(address, enabled ? "on_before_exit" : "off_before_exit");
-                session.mode(false);
+                if (!enabled) {
+                    off(session, true);
+                } else {
+                    session.mode(true);
+                    hooks.afterMode(session);
+                    if (!stillWanted.getAsBoolean()) throw new IOException("켜기 요청이 취소되었습니다.");
+                    journal.mark(address, "on_before_led");
+                    session.led(true);
+                    hooks.afterLed(session);
+                    if (!stillWanted.getAsBoolean()) throw new IOException("켜기 요청이 취소되었습니다.");
+                    journal.mark(address, "on_before_exit");
+                    session.mode(false);
+                }
             }
             journal.clear(address);
-            return result(true, enabled ? "켜기와 진단 종료 응답 확인" : "끄기와 진단 종료 응답 확인");
+            return result(true, enabled ? "켜기와 진단 종료 응답 확인" : "진단 및 기본 조명 끄기 응답 확인");
         } catch (Exception failure) {
             hooks.log("명령 중단: " + safeError(failure));
             // One bounded fresh-session recovery, never reuse the interrupted session.
@@ -100,6 +97,33 @@ public final class RecoveryTransaction {
             }
             return result(false, "요청 미완료" + (restored ? ", 복구 명령 응답 확인" : "") + ": " + safeError(failure));
         }
+    }
+    /** Attempt both independent OFF paths; clear the journal only after every reply. */
+    private void off(Session session, boolean useHooks) throws Exception {
+        Exception failure = null;
+        boolean modeEntered = false;
+        try {
+            session.mode(true);
+            modeEntered = true;
+            if (useHooks) hooks.afterMode(session);
+        } catch (Exception e) { failure = e; }
+        if (modeEntered && failure == null) {
+            try {
+                session.led(false);
+                if (useHooks) hooks.afterLed(session);
+            } catch (Exception e) { failure = e; }
+        }
+        // Neither exit failure nor an earlier diagnostic failure suppresses native OFF.
+        try { session.mode(false); }
+        catch (Exception e) { failure = combine(failure, e); }
+        try { session.nativeOff(); }
+        catch (Exception e) { failure = combine(failure, e); }
+        if (failure != null) throw failure;
+    }
+    private static Exception combine(Exception first, Exception next) {
+        if (first == null) return next;
+        first.addSuppressed(next);
+        return first;
     }
     private Result result(boolean success, String text) {
         return new Result(success, !journal.pendingAddress().isEmpty(), text);

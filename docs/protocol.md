@@ -32,7 +32,7 @@ The streaming decoder accepts fragmented or concatenated input, searches past no
 | LED OFF | `FD 0A 00 13 46 46 46 45 22 30 22 DE 89 DD` |
 | Leave diagnostic mode | `FD 04 00 12 00 11 65 DD` |
 
-Only one of the two LED commands is sent in an ordinary transaction. Message `0x13` contains ASCII `FFFE"1"` or `FFFE"0"` inside the binary frame; these are not unframed modem AT strings. The sequence is mode 1 → selected LED command → mode 0 → close. Successful ON leaves the tested diagnostic output lit after mode exit and socket closure.
+Only one of the two LED commands is sent in an ordinary transaction. Message `0x13` contains ASCII `FFFE"1"` or `FFFE"0"` inside the binary frame; these are not unframed modem AT strings. ON uses mode 1 → LED ON → mode 0 → close. OFF additionally requests native OFF after diagnostic mode exit. Successful ON leaves the tested diagnostic output lit after mode exit and socket closure.
 
 Factory mode has effects beyond the light command: analysis found changes to message filtering and temporary automatic role-switch behavior. Explicit exit and interrupted-command recovery are therefore part of the implementation, not optional cleanup.
 
@@ -44,12 +44,12 @@ ON and OFF share the same reply text. There is no transaction sequence number, s
 
 ## Ordinary lighting messages
 
-Incoming notifications and outgoing requests are not interchangeable. Sending message `0x8E` with payload `01` failed to turn on the lights. In the examined request handler, the payload is not read for the lighting action; the handler invokes OFF. The frame `FD 04 00 8E 00 97 38 DD` was observed to turn off normal lighting, but this is not the production diagnostic OFF transaction.
+Incoming notifications and outgoing requests are not interchangeable. Sending message `0x8E` with payload `01` failed to turn on the lights. In the examined request handler, the payload is not read for the lighting action; the handler invokes OFF. The frame `FD 04 00 8E 00 97 38 DD` was observed to turn off normal lighting and is used as an additional OFF cleanup step. A reply is not physical light-state readback.
 
-Pattern selection is part of compound touch settings in message `0x90`. It is not a standalone power command and must not be rewritten without preserving the other settings. Its examined handler changes playback only when the normal light mode is already active. Diagnostic LEDTEST does not establish that normal state.
+Pattern selection is part of compound touch settings in message `0x90`. The app reads a CRC-valid revision-4 `0x61` snapshot, preserves the eight mapped touch settings and advanced field, and writes only when the current configuration is within the tested bounds (touch master and hold enabled; advanced value zero; known style). It then verifies the result on a fresh connection. Interrupted updates are reconciled by reading, not blindly replaying the write. Style is not a standalone power command. The examined handler changes playback only when the normal light mode is active; diagnostic LEDTEST does not establish that state.
 
 ## Source and scope
 
-[Protocol.java](../app/src/main/java/dev/bladelight/app/Protocol.java) implements frames and reply matching; [RecoveryTransaction.java](../app/src/main/java/dev/bladelight/app/RecoveryTransaction.java) defines production sequencing.
+[Protocol.java](../app/src/main/java/dev/bladelight/app/Protocol.java) implements frames and reply matching; [RecoveryTransaction.java](../app/src/main/java/dev/bladelight/app/RecoveryTransaction.java) defines light sequencing; [PatternTransaction.java](../app/src/main/java/dev/bladelight/app/PatternTransaction.java) defines guarded settings updates.
 
 [GalaxyBudsClient's hidden command encoder](https://github.com/timschneeb/GalaxyBudsClient/blob/master/GalaxyBudsClient/Message/Encoder/HiddenCmdDataEncoder.cs) and [hidden-mode controller](https://github.com/timschneeb/GalaxyBudsClient/blob/master/GalaxyBudsClient/Interface/ViewModels/Pages/HiddenModePageViewModel.cs) provide independent public context. Its generic delimiter encoding differs from the quoted arguments tested here; the exact target parser and physical experiment establish this implementation's format.

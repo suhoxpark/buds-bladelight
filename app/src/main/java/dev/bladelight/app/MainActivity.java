@@ -35,6 +35,7 @@ public final class MainActivity extends Activity {
     private BladeSheet activeSheet;
     private TextView deviceLabel, banner;
     private Button on, off;
+    private View patternRow;
     private boolean dark, rendering, resumed, destroyed, settingsPage;
     private int bg, surface, ink, muted, accent;
     private String error = "";
@@ -81,7 +82,7 @@ public final class MainActivity extends Activity {
     }
 
     private void buildPage() {
-        automatic = null; on = null; off = null; banner = null; deviceLabel = null;
+        automatic = null; on = null; off = null; banner = null; deviceLabel = null; patternRow = null;
         FrameLayout frame = new FrameLayout(this); frame.setBackgroundColor(bg);
         frame.setOnApplyWindowInsetsListener((v, insets) -> {
             Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
@@ -125,16 +126,18 @@ public final class MainActivity extends Activity {
         deviceLabel.setBackground(ripple(surface,18)); deviceLabel.setOnClickListener(v -> chooseDevice());
         body.addView(deviceLabel,new LinearLayout.LayoutParams(-1,-2)); space(20);
         BladeArtworkView artwork = new BladeArtworkView(this, dark);
-        body.addView(artwork,new LinearLayout.LayoutParams(-1,dp(280),1)); space(24);
+        body.addView(artwork,new LinearLayout.LayoutParams(-1,dp(220),1)); space(24);
         LinearLayout commands = new LinearLayout(this);
         on = action(getString(R.string.on),getString(R.string.turn_on),"sun",true); off = action(getString(R.string.off),getString(R.string.turn_off),"power",false);
         LinearLayout.LayoutParams a = new LinearLayout.LayoutParams(0,dp(64),1); a.setMarginEnd(dp(6));
         LinearLayout.LayoutParams b = new LinearLayout.LayoutParams(0,dp(64),1); b.setMarginStart(dp(6));
         commands.addView(on,a); commands.addView(off,b); body.addView(commands);
         on.setOnClickListener(v -> command(true)); off.setOnClickListener(v -> command(false)); space(20);
+        LinearLayout controls = column(); controls.setBackground(shape(surface,22));
+        patternRow = settingRow("pattern",getString(R.string.light_style),"",this::choosePattern);
+        controls.addView(patternRow);divider(controls);
         LinearLayout autoCard = new LinearLayout(this); autoCard.setGravity(Gravity.CENTER_VERTICAL);
         autoCard.setPadding(dp(18),dp(16),dp(18),dp(16)); autoCard.setMinimumHeight(dp(80));
-        autoCard.setBackground(shape(surface,22));
         ImageView autoIcon = new ImageView(this); autoIcon.setImageDrawable(new BladeIcon("auto",muted));
         autoIcon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         LinearLayout.LayoutParams autoIconSize = new LinearLayout.LayoutParams(dp(24),dp(24)); autoIconSize.setMarginEnd(dp(14));
@@ -148,7 +151,7 @@ public final class MainActivity extends Activity {
                 new int[]{dark ? 0xFF283446 : Color.WHITE,dark ? 0xFF989FAC : Color.WHITE}));
         automatic.setTrackTintList(new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},
                 new int[]{accent,dark ? 0xFF424853 : 0xFFA5ACB8}));
-        autoCard.addView(automatic,new LinearLayout.LayoutParams(-2,-2)); body.addView(autoCard);
+        autoCard.addView(automatic,new LinearLayout.LayoutParams(-2,-2)); controls.addView(autoCard);body.addView(controls);
         autoCard.setOnClickListener(v -> { if (automatic.isEnabled()) automatic.toggle(); });
         automatic.setOnCheckedChangeListener((button, enabled) -> {
             if (rendering) return;
@@ -219,6 +222,60 @@ public final class MainActivity extends Activity {
             });
         }
         sheet.show();
+    }
+    private void choosePattern() {
+        if(controller.isBusy()){toast(getString(R.string.busy));return;}
+        if(!ensurePermission())return;
+        if(store.registeredAddress().isEmpty()){chooseDevice();return;}
+        if(adapter==null || !adapter.isEnabled()){startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));return;}
+        if(!store.pendingAddress().isEmpty()){recoverPending();return;}
+        patternOperation(null);
+    }
+    private void patternOperation(Integer target) {
+        try {if(target!=null)store.claimAuto(store.epoch());}
+        catch(Exception failure){error=getString(R.string.save_failed);render();return;}
+        BladeSheet loading=sheet("pattern",getString(R.string.light_style),"");
+        loading.addMessage(getString(target==null?R.string.reading_style:R.string.saving_style));loading.show();
+        String address=store.registeredAddress();
+        boolean accepted=controller.pattern(address,target,(result,detail)->ui.post(()->{
+            if(destroyed)return;
+            boolean visible=resumed && activeSheet==loading && loading.isShowing();
+            if(activeSheet==loading)loading.dismiss();
+            if(result==null || !result.success) {
+                error=store.hasPending()?"":getString(R.string.style_unconfirmed);
+                if(visible) {
+                    BladeSheet failure=sheet("pattern",getString(R.string.light_style),"");
+                    failure.addMessage(getString(result!=null && "pattern_unsupported_controls".equals(result.detail)
+                        ?R.string.style_unsupported:R.string.style_unconfirmed));
+                    failure.addButton(getString(R.string.ok),true,null);failure.show();
+                }
+            } else {
+                error="";
+                if(visible && target==null)showPatternChoices(result.snapshot);
+                else if(visible)toast(getString(R.string.style_saved));
+            }
+            render();
+        }));
+        if(!accepted){loading.dismiss();toast(getString(R.string.busy));}
+        render();
+    }
+    private void showPatternChoices(PatternSettings settings) {
+        if(settings==null)return;
+        BladeSheet choices=sheet("pattern",getString(R.string.light_style),getString(R.string.saved_on_buds));
+        choices.addMessage(getString(R.string.style_scope));
+        int[] labels={R.string.style_steady,R.string.style_blink,R.string.style_breathe};
+        try {settings.frameForStyle(settings.style());}
+        catch(IllegalArgumentException | IllegalStateException unsupported) {
+            choices.addMessage(getString(labels[settings.style()-1]));
+            choices.addMessage(getString(R.string.style_unsupported));
+            choices.addButton(getString(R.string.ok),true,null);choices.show();return;
+        }
+        String[] icons={"steady","blink","pattern"};
+        for(int i=0;i<3;i++) {
+            int style=i+1;
+            choices.addChoice(getString(labels[i]),"",icons[i],settings.style()==style,()->patternOperation(style));
+        }
+        choices.show();
     }
     private boolean hasPermission() { return checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED; }
     private boolean ensurePermission() {
@@ -295,7 +352,7 @@ public final class MainActivity extends Activity {
             public void finished(boolean success, boolean pending, String detail) {
                 ui.post(() -> {
                     if (destroyed) return;
-                    error = success ? "" : pending ? getString(R.string.recovery_needed) : getString(R.string.retry_connection);
+                    error = success || pending ? "" : getString(R.string.retry_connection);
                     if (success && resumed) toast(getString(action == Action.RECOVER ? R.string.recovery_done : action == Action.ON ? R.string.on_requested : R.string.off_requested));
                     render();
                 });
@@ -305,6 +362,7 @@ public final class MainActivity extends Activity {
     private void resolveProblem() {
         if (!hasPermission()) { ensurePermission(); return; }
         if (store.hasPending()) recoverPending(); else if (store.registeredAddress().isEmpty()) chooseDevice();
+        else if (error.equals(getString(R.string.style_unconfirmed))) choosePattern();
         else if (!error.isEmpty()) startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
     }
     private void render() {
@@ -317,12 +375,16 @@ public final class MainActivity extends Activity {
         deviceLabel.setContentDescription(ready ? getString(R.string.change_buds_accessibility, store.registeredName()) : getString(R.string.register_buds));
         on.setEnabled(ready && !busy); off.setEnabled(ready && !busy);
         on.setAlpha(on.isEnabled() ? 1f : .45f); off.setAlpha(off.isEnabled() ? 1f : .45f);
+        if(patternRow!=null){patternRow.setEnabled(ready && !busy);patternRow.setAlpha(patternRow.isEnabled()?1f:.45f);}
+        String last=store.lastRequest();
+        String lastRequest="on".equals(last)?getString(R.string.last_on_request):"off".equals(last)?getString(R.string.last_off_request):"";
         String message = busy ? getString(R.string.working)
                 : !hasPermission() ? getString(R.string.grant_permission)
-                : store.hasPending() ? getString(R.string.recovery_needed) : error;
+                : store.hasPending() ? getString(R.string.recovery_needed) : !error.isEmpty()?error:lastRequest;
         if (!TextUtils.equals(banner.getText(),message)) banner.setText(message);
         banner.setTextColor(!busy && (store.hasPending() || !error.isEmpty()) ? (dark ? 0xFFFFB4A5 : 0xFFAD392C) : muted);
-        banner.setClickable(!busy && !message.isEmpty()); banner.setFocusable(!busy && !message.isEmpty());
+        boolean actionable=!hasPermission() || store.hasPending() || !error.isEmpty();
+        banner.setClickable(!busy && actionable); banner.setFocusable(!busy && actionable);
         // Preserve space while hiding an empty status from accessibility.
         banner.setImportantForAccessibility(message.isEmpty() ? View.IMPORTANT_FOR_ACCESSIBILITY_NO : View.IMPORTANT_FOR_ACCESSIBILITY_YES);
     }

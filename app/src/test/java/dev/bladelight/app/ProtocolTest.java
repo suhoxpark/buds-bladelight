@@ -111,6 +111,21 @@ public final class ProtocolTest {
         gate.accept(20, fragmented);
         try { gate.await(mismatch, 30); throw new AssertionError("mismatched session or fragment accepted"); }
         catch (java.util.concurrent.TimeoutException expected) { } finally { gate.cancel(mismatch); }
+        try { gate.arm(21, 0x8e, 1); throw new AssertionError("native ON ticket accepted"); }
+        catch (IllegalArgumentException expected) { }
+        Protocol.ResponseGate.Ticket nativeOff = gate.arm(21, 0x8e, 0);
+        byte[] nativeReply = Protocol.lighting(0); nativeReply[2] = 0x10;
+        gate.accept(20, nativeReply); // prior connection cannot confirm this command
+        gate.accept(21, Protocol.lighting(0)); // request is not a reply
+        byte[] metadata = nativeReply.clone(); metadata[2] = 0x30; gate.accept(21, metadata);
+        byte[] badNativeCrc = nativeReply.clone(); badNativeCrc[5] ^= 1; gate.accept(21, badNativeCrc);
+        byte[] badNativeLength = nativeReply.clone(); badNativeLength[1] = 5; gate.accept(21, badNativeLength);
+        byte[] badNativeBoundary = nativeReply.clone(); badNativeBoundary[7] = 0; gate.accept(21, badNativeBoundary);
+        byte[] extra = java.util.Arrays.copyOf(nativeReply, 9); gate.accept(21, extra);
+        byte[] wrongValue = Protocol.lighting(1); wrongValue[2] = 0x10; gate.accept(21, wrongValue);
+        try { gate.await(nativeOff, 30); throw new AssertionError("invalid native OFF response accepted"); }
+        catch (java.util.concurrent.TimeoutException expected) { }
+        gate.accept(21, nativeReply); gate.await(nativeOff, 100); gate.cancel(nativeOff);
         Protocol.ResponseGate.Ticket failed = gate.arm(30, 0x13, -1);
         gate.accept(30, response(0x13, "L+LEDTEST:2,ERROR\r\nOK\r\n"));
         try { gate.await(failed, 30); throw new AssertionError("negative response accepted"); }

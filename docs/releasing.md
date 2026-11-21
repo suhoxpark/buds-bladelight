@@ -56,6 +56,8 @@ Hosted CI has been verified successfully; the dated run, commit and checks are r
 
 ## Source inclusion
 
-The public tree includes the production app, three core test suites, portable build tools, curated English documentation and Korean README. Experimental packages, local scripts, caches, signing material, device records and the entire `design` directory are excluded. Only the active signature in application resources is published; design references, duplicate masters and previous iterations remain local.
+Build release artifacts from a clean checkout of the reviewed public tree. Git ignores do not exclude files from Android resource packaging; local prototype files under `app/src` can otherwise enter an APK even when they are absent from the repository.
+
+The public tree includes the production app, core test suites, portable build tools, curated English documentation and Korean README. Experimental packages, local scripts, caches, signing material, device records and the entire `design` directory are excluded. Only the active signature in application resources is published; design references, duplicate masters and previous iterations remain local.
 
 Generated Gradle Wrapper files retain their Apache 2.0 licensing. Project code and documentation use MIT; vendor analysis inputs are not redistributed.

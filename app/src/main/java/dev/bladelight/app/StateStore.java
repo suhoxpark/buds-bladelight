@@ -15,14 +15,37 @@ public final class StateStore {
     public boolean autoEnabled() { return prefs.getBoolean("auto_enabled", false); }
     public String pendingAddress() { return prefs.getString("pending_address", ""); }
     public String pendingPhase() { return prefs.getString("pending_phase", ""); }
-    public boolean hasPending() { return !pendingAddress().isEmpty(); }
+    public boolean hasPending() { return !pendingAddress().isEmpty() || !prefs.getString("pattern_pending_address", "").isEmpty(); }
+    public String lastRequest() { return prefs.getString("last_request", ""); }
+    public void lastRequest(String request) { prefs.edit().putString("last_request", request).apply(); }
+    public PatternTransaction.Pending pendingPattern() {
+        String address = prefs.getString("pattern_pending_address", "");
+        if (address.isEmpty()) return null;
+        return new PatternTransaction.Pending(address, prefs.getInt("pattern_target", -1),
+                prefs.getInt("pattern_controls", -1), prefs.getInt("pattern_advanced", -1));
+    }
+    public void markPattern(PatternTransaction.Pending pending) throws IOException {
+        synchronized (LOCK) {
+            if (!registeredAddress().equals(pending.address) || hasPending()) throw new IOException("설정 작업을 시작할 수 없습니다.");
+            commit(prefs.edit().putString("pattern_pending_address", pending.address)
+                    .putInt("pattern_target", pending.targetStyle).putInt("pattern_controls", pending.controlBits)
+                    .putInt("pattern_advanced", pending.advanced));
+        }
+    }
+    public void clearPattern(String address) throws IOException {
+        synchronized (LOCK) {
+            if (!address.equals(prefs.getString("pattern_pending_address", ""))) throw new IOException("설정 확인 대상이 다릅니다.");
+            commit(prefs.edit().remove("pattern_pending_address").remove("pattern_target")
+                    .remove("pattern_controls").remove("pattern_advanced"));
+        }
+    }
     public String status() { return prefs.getString("last_status", "등록한 버즈가 없습니다."); }
     public void status(String text) { prefs.edit().putString("last_status", text).apply(); }
     public void register(String address, String name) throws IOException {
         synchronized (LOCK) {
             if (hasPending()) throw new IOException("미완료 작업을 복구한 뒤 기기를 변경하세요.");
             commit(prefs.edit().putString("registered_address", address).putString("registered_name", name)
-                    .putBoolean("auto_enabled", false).putBoolean("acl_connected", false)
+                    .putBoolean("auto_enabled", false).putBoolean("acl_connected", false).remove("last_request")
                     .putLong("connection_epoch", epoch() + 1).putLong("handled_epoch", -1));
         }
     }
@@ -35,7 +58,9 @@ public final class StateStore {
     public void markPending(String address, String phase) throws IOException {
         synchronized (LOCK) {
             if (!registeredAddress().equals(address)) throw new IOException("등록 기기가 바뀌어 명령을 중단합니다.");
-            if (hasPending() && !pendingAddress().equals(address)) throw new IOException("다른 기기의 복구가 남아 있습니다.");
+            if (!pendingAddress().isEmpty() && !pendingAddress().equals(address)) throw new IOException("다른 기기의 복구가 남아 있습니다.");
+            String patternAddress = prefs.getString("pattern_pending_address", "");
+            if (!patternAddress.isEmpty() && !patternAddress.equals(address)) throw new IOException("다른 기기의 설정 확인이 남아 있습니다.");
             commit(prefs.edit().putString("pending_address", address).putString("pending_phase", phase));
         }
     }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 2026-11-21
+
+- Read and change the saved light style using guarded settings updates and fresh readback.
+- Request both diagnostic and native OFF during light cleanup and recovery.
+- Clarify saved style, command acknowledgements and physical light-state limitations.
+- Extend protocol and research documentation.
+
+The current ON command still produces steady diagnostic light. Native pattern activation from a fully inactive state and physical LED readback remain unresolved.
+
 ## 0.6.0 — 2026-11-18
 
 - English and Korean resources, including accessibility labels and notifications.

@@ -8,11 +8,11 @@ Three kinds of evidence are kept distinct: source/instruction analysis, protocol
 
 ## Hardware baseline
 
-Physical control testing on 2026-11-17 used Galaxy Buds3 Pro, user-reported firmware R630XXU0AZG2, and Galaxy S25 FE / Android 17 / One UI 9.0. The firmware analysis used a matching-version archive, not a device readback. Tests were bounded functional observations, not certification or a broad device matrix.
+Physical control testing on 2026-11-17 used Galaxy Buds3 Pro, firmware R630XXU0AZG2, and Galaxy S25 FE / Android 17 / One UI 9.0. Both earbuds reported this version in version information; the firmware analysis used a matching-version archive, not a bytewise device readback. Tests were bounded functional observations, not certification or a broad device matrix.
 
 | Behavior | Observed result |
 | --- | --- |
-| ON and OFF | User confirmed both lights changed |
+| ON and OFF | Visual inspection showed both lights changed |
 | After diagnostic exit and socket close | Both remained lit after 30 seconds |
 | Samsung companion coexistence | Separate channels operated concurrently; EQ changed/restored while lights remained on |
 | Wear, music, remove | Playback worked; lights observed after removal, not continuously while worn |
@@ -29,6 +29,28 @@ Physical control testing on 2026-11-17 used Galaxy Buds3 Pro, user-reported firm
 
 These observations do not establish every possible interruption timing or persistent role-state behavior. ON and OFF reply text is identical, and the propagation mechanism responsible for both earbuds reacting to one responding endpoint remains unresolved.
 
+## Later bounded research
+
+On the documented hardware, guarded style changes were read back after reconnecting. Visual inspection showed that an active native breathing pattern changed to blinking and back, and that the same change could relight it after diagnostic OFF. After a closed-case reconnect or native OFF, the same style changes did not relight the earbuds. These are bounded trials, not a compatibility or reliability estimate.
+
+A separate native OFF request produced valid responses and both lights were observed off; the Samsung native-light notification also disappeared. Diagnostic OFF had left that notification active after the lights were observed off. Neither notification state nor a protocol response is an optical LED measurement. The integrated v0.7 OFF sequence was subsequently tested as described below.
+
+A diagnostic log snapshot captured peer-message parsing and named handler entry for two ordinary synchronization messages. It did not capture the initial handshake, establish host command admission or provide LED-state readback. The session's close path requests a restart; normal reconnection was checked separately. See [reverse engineering](reverse-engineering.md).
+
+## 0.7.0 integration checks — 2026-11-21
+
+The application was tested in a separate Preview package on the hardware above. Fresh settings reads confirmed the initial breathing style, followed by blinking, steady and restored breathing. Visual inspection confirmed both earbuds followed each selected style. The transaction verified the saved style and preservation of mapped touch settings on a separate connection after each write.
+
+OFF was then tested while the native breathing pattern was active. Diagnostic mode entry, diagnostic LED OFF, mode exit and native OFF each received matching responses; both lights were visually confirmed off and the recovery record was cleared. A separate app ON→OFF test confirmed steady output followed by both lights off. The saved style remained breathing.
+
+The five standalone core suites, release Lint and release assembly passed. Regression coverage includes an unavailable settings read after pending lighting cleanup and an explicit OFF that bypasses the settings prerequisite. Failure injection and automatic reconnect behavior were checked with controlled transports; the earlier full interruption/auto-on hardware matrix was not repeated for 0.7.0.
+
+A separate build containing only the 56 allowlisted public files also passed all five core suites, release Lint and release assembly. Its Lint report contained 0 errors and 8 compatibility/deprecation/resource warnings. The installed signed candidate was built from this public-source copy, excluding historical local resource files.
+
+Korean/dark and English/light home and style sheets were inspected on the phone. The current style was read from the connected earbuds rather than a cached display value. The main screen labels the last command as a request, not an actual light-state reading. Large-font and narrow-window checks were not repeated in this pass.
+
+The signed 0.7.0 APK (code 9) passed signature verification for SDK 31, 32 and 37 and updated 0.6.0 in place. The first-install timestamp, registered earbuds, auto-on option and theme were retained. The installed APK matched the signed file byte-for-byte. Saved-style reading also succeeded from the updated release app. The Preview package was removed. These checks describe local build and installation validation; hosted CI is recorded separately.
+
 ## Automated checks
 
 ```sh
@@ -39,7 +61,8 @@ python scripts/check-public-tree.py
 | Suite | Coverage |
 | --- | --- |
 | `ProtocolTest` | Exact frames, CRC vector, reply matching, fragmented/concatenated input, malformed-input recovery and historical trial helpers |
-| `RecoveryTransactionTest` | Journal before effects, fresh recovery session, mode exit after failed OFF, retained failed recovery, journal-write failures and cancellation |
+| `RecoveryTransactionTest` | Journal before effects, fresh recovery session, both OFF paths, retained failed recovery, journal-write failures and cancellation |
+| `PatternSettingsTest` / `PatternTransactionTest` | Snapshot validation, preservation guards, write journaling and readback reconciliation |
 | `AutoConnectPolicyTest` | Registered/bonded/Classic filtering and stale/already-handled connection rejection |
 
 These tests are standalone Java `main` programs. `verifyCore` explicitly runs them; Android's `testDebugUnitTest` alone does not. Tests exercise policy with controlled transports rather than real Bluetooth radios. Lint and APK builds verify Android resources and packaging, not physical operation.
@@ -64,7 +87,7 @@ On 2026-11-18, the release build for 0.6.0 was signed with a dedicated release k
 
 ## Negative experiments
 
-Ordinary `0x8E 01` did not turn on the lights. The phone-managed brightness trial produced visible stepping/flicker and was rejected. BESAUD connection-only probes found a channel-mode mismatch; no native lighting payload reached that channel. Their meaning and limitations are documented in [reverse engineering](reverse-engineering.md).
+Ordinary `0x8E 01` did not turn on the lights. The phone-managed brightness trial produced visible stepping/flicker and was rejected. Phone BESAUD probes found a channel-mode mismatch; a later Linux Basic-mode connection succeeded under a different one-ear setup without sending an application payload. Their meaning and limitations are documented in [reverse engineering](reverse-engineering.md).
 
 ## Unverified
 
@@ -72,7 +95,7 @@ Ordinary `0x8E 01` did not turn on the lights. The phone-managed brightness tria
 - Long-duration power consumption and low-battery behavior.
 - All reboot and OEM power-management combinations.
 - A reliable query of physical LED state.
-- Native blinking/breathing activation from the app.
+- Starting native blinking/breathing from a fully inactive state through the app.
 - Arbitrary failures outside the selected interruption boundaries.
 - Samsung-setting changes exactly during an active diagnostic transaction.
 
